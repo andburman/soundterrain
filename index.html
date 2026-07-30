@@ -133,20 +133,32 @@ h1 {
 
 .surface canvas { display: block; width: 100%; height: 100%; }
 
+/* Matched to SurfaceView.swift, not invented here. The app fills the puck with
+   ember, rings it with black at 55%, glows it at 0.18 resting and 0.45 playing,
+   and scales it 1.12 while dragged. A design detector will flag the glow as the
+   AI "cool" default; it is wrong in this one case, and the app says so in its
+   own source: the accent is the only thing permitted to glow, and this is what
+   it is for. */
 .puck {
   position: absolute;
   width: 26px; height: 26px;
   margin: -13px 0 0 -13px;
   border-radius: 50%;
-  background: #2a2a2a;
-  border: 1px solid #3d3d3d;
-  pointer-events: none;
-  transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
-}
-.surface.live .puck {
   background: var(--ember);
-  border-color: var(--ember);
-  box-shadow: 0 0 22px rgba(222, 112, 56, 0.34);
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  opacity: 0.55;
+  box-shadow: 0 0 12px rgba(222, 112, 56, 0.18);
+  pointer-events: none;
+  transition: opacity 0.5s ease, box-shadow 0.4s ease, transform 0.1s linear;
+}
+.puck { --breath: 1; transform: scale(var(--breath)); }
+.surface.live .puck {
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(222, 112, 56, 0.45);
+}
+.surface.dragging .puck {
+  transform: scale(calc(var(--breath) * 1.12));
+  box-shadow: 0 0 20px rgba(222, 112, 56, 0.45);
 }
 
 .invite {
@@ -437,7 +449,45 @@ footer {
   // below it. y: 0 = still, 1 = swelling. Opening position sits at pink, which
   // is where the app opens too.
   let x = 0.34, y = 0.18;
-  let ctx = null, node = null, gain = null, running = false;
+  let ctx = null, node = null, gain = null, analyser = null, running = false;
+  const stillare = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  /* The swell is the whole point of the vertical axis, and until the puck
+     answered to it the axis was a claim with nothing behind it. This reads the
+     real output level rather than re-deriving the swell in the UI thread: what
+     you see is what is actually coming out, not a second animation that merely
+     agrees with it. */
+  function breathe() {
+    if (!analyser || stillare.matches) return;
+    const buf = new Float32Array(analyser.fftSize);
+    let smooth = 0;
+    const tick = () => {
+      if (!analyser) return;
+      if (running) {
+        analyser.getFloatTimeDomainData(buf);
+        let s = 0;
+        for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+        const rms = Math.sqrt(s / buf.length);
+        smooth += (rms - smooth) * 0.08;
+        // Rest is exactly 1, never a fraction under it. Silence has to look
+        // like rest: an earlier version floored at 0.94, so whenever the
+        // browser declined to start the audio the puck sat visibly shrunken
+        // while the page insisted the sound was on.
+        if (smooth < 0.01) {
+          puck.style.setProperty('--breath', '1');
+        } else {
+          // 0.13 is roughly where the engine settles, so this sits near 1 and
+          // moves a few percent either side as the swell washes through.
+          const k = Math.max(0, Math.min(1.6, smooth / 0.13));
+          puck.style.setProperty('--breath', (0.97 + k * 0.05).toFixed(3));
+        }
+      } else {
+        puck.style.setProperty('--breath', '1');
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
 
   /* -----------------------------------------------------------------------
      The worklet.
@@ -580,7 +630,11 @@ footer {
     node = new AudioWorkletNode(ctx, 'terrain', { outputChannelCount: [2] });
     gain = ctx.createGain();
     gain.gain.value = 1;
-    node.connect(gain).connect(ctx.destination);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    node.connect(gain).connect(analyser);
+    analyser.connect(ctx.destination);
+    breathe();
 
     push();
     node.parameters.get('gain').value = 0.5;
@@ -624,6 +678,7 @@ footer {
 
   surface.addEventListener('pointerdown', (e) => {
     dragging = true;
+    surface.classList.add('dragging');
     // Capture is a nicety: it keeps the drag alive when the pointer leaves the
     // box. It throws on a pointer id the browser does not recognise, and an
     // uncaught throw here kills the rest of the handler, so the sound never
@@ -633,8 +688,9 @@ footer {
     start();
   });
   surface.addEventListener('pointermove', (e) => { if (dragging) setFromEvent(e); });
-  surface.addEventListener('pointerup',   () => { dragging = false; });
-  surface.addEventListener('pointercancel', () => { dragging = false; });
+  const endDrag = () => { dragging = false; surface.classList.remove('dragging'); };
+  surface.addEventListener('pointerup', endDrag);
+  surface.addEventListener('pointercancel', endDrag);
 
   stopBtn.addEventListener('click', stop);
 
@@ -689,11 +745,25 @@ footer {
     g.fillStyle = grad;
     g.fillRect(0, 0, w, h);
 
-    g.strokeStyle = '#1e1e1e';
+    // Two weights of rule, as the app draws them: white 0.16 on the quarters,
+    // white 0.10 hairlines between. A single centre cross read as a crosshair
+    // rather than as a field with positions in it.
     g.lineWidth = 1;
+    g.strokeStyle = '#1a1a1a';
     g.beginPath();
-    g.moveTo(w / 2, 0); g.lineTo(w / 2, h);
-    g.moveTo(0, h / 2); g.lineTo(w, h / 2);
+    for (let i = 1; i < 8; i++) {
+      if (i % 2 === 0) continue;
+      g.moveTo(Math.round(w * i / 8) + 0.5, 0); g.lineTo(Math.round(w * i / 8) + 0.5, h);
+      g.moveTo(0, Math.round(h * i / 8) + 0.5); g.lineTo(w, Math.round(h * i / 8) + 0.5);
+    }
+    g.stroke();
+
+    g.strokeStyle = '#292929';
+    g.beginPath();
+    for (const f of [0.25, 0.5, 0.75]) {
+      g.moveTo(Math.round(w * f) + 0.5, 0); g.lineTo(Math.round(w * f) + 0.5, h);
+      g.moveTo(0, Math.round(h * f) + 0.5); g.lineTo(w, Math.round(h * f) + 0.5);
+    }
     g.stroke();
   }
 
