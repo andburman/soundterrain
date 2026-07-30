@@ -173,11 +173,38 @@ h1 {
   font-size: 0.8125rem;
   color: var(--meta);
 }
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  min-height: 2.25rem;
+}
 .axis-y {
-  margin-top: 0.25rem;
   font-size: 0.8125rem;
   color: var(--meta);
 }
+
+/* Sound that starts on a drag must be stoppable in one obvious click. This
+   button is visible the whole time the sound is on, never hidden behind a
+   hover, and Escape does the same thing. */
+.stop {
+  flex: none;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ember);
+  background: transparent;
+  border: 1px solid var(--ember);
+  border-radius: 980px;
+  padding: 0.4rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.stop:hover { background: var(--ember); color: #12080a; }
+.stop:active { transform: translateY(1px); }
+.stop:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+.stop[hidden] { display: none; }
 
 /* --- the seam: one full-width editorial statement ------------------------ */
 
@@ -317,7 +344,10 @@ footer {
         </div>
       </div>
       <div class="axes"><span>Light</span><span>Dark</span></div>
-      <div class="axis-y">Up is still, down is swelling.</div>
+      <div class="controls">
+        <button type="button" class="stop" id="stop" hidden>Stop</button>
+        <span class="axis-y">Up is still, down is swelling.</span>
+      </div>
     </div>
 
   </div>
@@ -401,6 +431,7 @@ footer {
   const surface = document.getElementById('surface');
   const puck    = document.getElementById('puck');
   const canvas  = document.getElementById('grid');
+  const stopBtn = document.getElementById('stop');
 
   // x runs across four control points: white, pink, brown, and the register
   // below it. y: 0 = still, 1 = swelling. Opening position sits at pink, which
@@ -520,7 +551,18 @@ footer {
   `;
 
   async function start() {
-    if (ctx) { if (ctx.state === 'suspended') await ctx.resume(); return; }
+    if (ctx) {
+      // State first, resume after, and deliberately not awaited. An awaited
+      // resume() that the browser declines never settles, and everything below
+      // it silently never runs: the sound stays off and the button never comes
+      // back. The visible state must not depend on that promise.
+      running = true;
+      node.parameters.get('gain').value = 0.5;
+      surface.classList.add('live');
+      stopBtn.hidden = false;
+      if (ctx.state === 'suspended') ctx.resume();
+      return;
+    }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;                       // no Web Audio: the page still reads fine
     ctx = new AC();
@@ -544,6 +586,18 @@ footer {
     node.parameters.get('gain').value = 0.5;
     running = true;
     surface.classList.add('live');
+    stopBtn.hidden = false;
+  }
+
+  // Ramps the gain down before suspending, so stopping is not a click. The
+  // worklet glides at 0.0002 per sample, which is roughly a fifth of a second.
+  function stop() {
+    if (!ctx || !running) return;
+    running = false;
+    node.parameters.get('gain').value = 0;
+    surface.classList.remove('live');
+    stopBtn.hidden = true;
+    setTimeout(() => { if (!running && ctx) ctx.suspend(); }, 400);
   }
 
   function push() {
@@ -570,13 +624,26 @@ footer {
 
   surface.addEventListener('pointerdown', (e) => {
     dragging = true;
-    surface.setPointerCapture(e.pointerId);
+    // Capture is a nicety: it keeps the drag alive when the pointer leaves the
+    // box. It throws on a pointer id the browser does not recognise, and an
+    // uncaught throw here kills the rest of the handler, so the sound never
+    // starts. Never let the nicety take the essential with it.
+    try { surface.setPointerCapture(e.pointerId); } catch (_) {}
     setFromEvent(e);
     start();
   });
   surface.addEventListener('pointermove', (e) => { if (dragging) setFromEvent(e); });
   surface.addEventListener('pointerup',   () => { dragging = false; });
   surface.addEventListener('pointercancel', () => { dragging = false; });
+
+  stopBtn.addEventListener('click', stop);
+
+  // Escape stops it from anywhere on the page, not just from the button. If
+  // the sound is on and unwanted, hunting for a control is the wrong thing to
+  // ask of someone.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && running) { e.preventDefault(); stop(); }
+  });
 
   // Keyboard, because a surface you can only drag is a surface some people
   // cannot use at all.
@@ -589,7 +656,7 @@ footer {
       case 'ArrowUp':    y = Math.max(0, y - step); break;
       case 'ArrowDown':  y = Math.min(1, y + step); break;
       case 'Enter':
-      case ' ':          start(); break;
+      case ' ':          e.preventDefault(); running ? stop() : start(); return;
       default: handled = false;
     }
     if (handled) { e.preventDefault(); place(); push(); start(); }
