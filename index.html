@@ -4,44 +4,638 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sound Terrain</title>
-<meta name="description" content="Noise made as you listen — never a recording, so never a loop to recognise. A white noise app for sleep, on iPhone and iPad.">
+<meta name="description" content="A white noise app for sleep that generates its sound as you listen. Nothing is recorded, so nothing can loop. For iPhone and iPad.">
+<link rel="canonical" href="https://soundterrain.enkelstudio.eu/">
+<meta property="og:title" content="Sound Terrain">
+<meta property="og:description" content="Noise generated as you listen. Nothing recorded, so nothing to loop.">
+<meta property="og:url" content="https://soundterrain.enkelstudio.eu/">
+<meta property="og:image" content="https://soundterrain.enkelstudio.eu/img/1-surface.png">
+<meta name="theme-color" content="#000000">
 <style>
-  :root { color-scheme: light dark; }
-  body {
-    max-width: 34rem; margin: 0 auto; padding: 3rem 1.5rem 6rem;
-    font: 400 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #1c1c1e; background: #fff;
-  }
-  @media (prefers-color-scheme: dark) { body { color: #e5e5e7; background: #000; } }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 .4rem; }
-  p { opacity: .7; }
-  ul { list-style: none; padding: 0; margin: 2.5rem 0 0; }
-  li { margin: .9rem 0; }
-  a { color: inherit; }
+/* ---------------------------------------------------------------------------
+   Sound Terrain
 
-  /* The one thing this page is for. Until 2026-07-30 the only links here were the privacy
-     policy and the support page — so every channel that sent anyone here landed them in a
-     dead end, including the ones Apple requires this page to exist for. */
-  .get {
-    display: inline-block; margin: 1.8rem 0 0;
-    padding: .85rem 1.6rem; border-radius: 980px;
-    background: #1c1c1e; color: #fff;
-    font-weight: 500; text-decoration: none;
+   The palette is taken from the app, not chosen for the web. Pure black is a
+   product decision: the app is used on an OLED screen in a dark room, and it
+   emits nothing it does not have to. Nothing in the app is brighter than
+   white 0.52, so nothing here is either. The single accent is the app's own,
+   named `ember` in Palette.swift.
+
+   System font on purpose. This markets an iOS app, and -apple-system resolves
+   to the exact SF Pro the app itself draws in.
+--------------------------------------------------------------------------- */
+:root {
+  --bg:      #000000;
+  --surface: #0b0b0b;   /* the app's own surface fill, white 0.042 */
+  --line:    #242424;
+  --line-lo: #171717;
+  --ember:   #de7038;   /* Palette.ember, rgb(0.87, 0.44, 0.22) */
+  --text:    #858585;   /* white 0.52, the app's ceiling. 5.6:1 on black */
+  --meta:    #757575;   /* 4.6:1 on black, still AA */
+  --recede:  #454545;   /* non-essential only */
+  --measure: 60ch;
+  --edge:    clamp(1.25rem, 5vw, 4rem);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+p { margin: 0; }
+a { color: inherit; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: var(--edge); }
+
+section { padding-block: clamp(5rem, 12vw, 9rem); }
+
+/* --- hero ---------------------------------------------------------------- */
+
+.hero {
+  padding-top: clamp(3.5rem, 8vw, 6rem);
+  padding-bottom: clamp(4rem, 9vw, 7rem);
+}
+.hero-grid {
+  display: grid;
+  gap: clamp(3rem, 6vw, 5rem);
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .hero-grid { grid-template-columns: 1fr 1fr; gap: clamp(3rem, 6vw, 6rem); }
+}
+
+.wordmark {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--meta);
+  margin-bottom: clamp(2.5rem, 6vw, 4rem);
+}
+
+h1 {
+  /* Capped so the headline holds two lines at desktop. It ran to three at
+     3.75rem, which is a font-size error, not a copy-length one. */
+  font-size: clamp(2rem, 4.4vw, 3rem);
+  line-height: 1.08;
+  color: #9a9a9a;
+  margin-bottom: 1.5rem;
+  max-width: 15ch;
+}
+
+.lede {
+  font-size: clamp(1.0625rem, 1.6vw, 1.1875rem);
+  max-width: 34ch;
+  margin-bottom: 2.5rem;
+}
+
+.get {
+  display: inline-block;
+  padding: 0.9rem 1.75rem;
+  border-radius: 980px;
+  background: var(--ember);
+  color: #12080a;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+.get:hover  { filter: brightness(1.08); }
+.get:active { transform: translateY(1px); }
+.get:focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; }
+
+/* --- the surface: an actual instrument, not a picture of one -------------- */
+
+.instrument { width: 100%; }
+
+.surface {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 62vh;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  touch-action: none;
+  cursor: crosshair;
+  overflow: hidden;
+}
+.surface:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+
+.surface canvas { display: block; width: 100%; height: 100%; }
+
+.puck {
+  position: absolute;
+  width: 26px; height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  border: 1px solid #3d3d3d;
+  pointer-events: none;
+  transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+.surface.live .puck {
+  background: var(--ember);
+  border-color: var(--ember);
+  box-shadow: 0 0 22px rgba(222, 112, 56, 0.34);
+}
+
+.invite {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--meta);
+  font-size: 0.9375rem;
+  background: rgba(0, 0, 0, 0.55);
+  transition: opacity 0.6s ease;
+}
+.invite b { color: var(--text); font-weight: 500; display: block; font-size: 1.0625rem; }
+.surface.live .invite { opacity: 0; pointer-events: none; }
+
+.axes {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--meta);
+}
+.axis-y {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--meta);
+}
+
+/* --- the seam: one full-width editorial statement ------------------------ */
+
+.seam { border-top: 1px solid var(--line-lo); }
+.seam h2 {
+  font-size: clamp(1.875rem, 4.6vw, 3rem);
+  line-height: 1.12;
+  color: #909090;
+  margin-bottom: 1.75rem;
+  /* In rem, not ch. On the parent, `30ch` resolved against the body's 17px
+     and clamped the headline to 270px, which broke it over four lines. */
+  max-width: 22rem;
+}
+@media (min-width: 760px) { .seam h2 { max-width: 34rem; } }
+.seam p { max-width: 52ch; margin-bottom: 1.125rem; }
+.seam p:last-child { margin-bottom: 0; }
+.seam-body { max-width: 52ch; }
+
+/* --- screens: real screenshots, offset so the row is not a wall ---------- */
+
+.screens { border-top: 1px solid var(--line-lo); }
+.screens h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  color: #909090;
+  margin-bottom: 0.875rem;
+}
+.screens .intro { max-width: 46ch; margin-bottom: clamp(3rem, 6vw, 4.5rem); }
+
+.shots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1rem, 3vw, 2.5rem);
+  align-items: start;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line-lo);
+}
+.shot figcaption {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--meta);
+}
+@media (min-width: 700px) {
+  .shot:nth-child(2) { transform: translateY(2.5rem); }
+  .shot:nth-child(3) { transform: translateY(1rem); }
+}
+@media (max-width: 699px) {
+  .shots { grid-template-columns: 1fr; gap: 3rem; max-width: 22rem; }
+}
+
+/* --- dark: two columns of prose, no cards ------------------------------- */
+
+.dark { border-top: 1px solid var(--line-lo); }
+.dark h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  color: #909090;
+  margin-bottom: clamp(2rem, 4vw, 3rem);
+}
+.cols {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3.5rem);
+}
+@media (min-width: 760px) { .cols { grid-template-columns: 1fr 1fr; } }
+.cols h3 {
+  font-size: 1.0625rem;
+  color: var(--text);
+  margin-bottom: 0.625rem;
+}
+.cols p { color: var(--meta); max-width: 44ch; }
+
+/* --- price: a single sentence, given the whole width -------------------- */
+
+.price { border-top: 1px solid var(--line-lo); text-align: center; }
+.price .line {
+  font-size: clamp(1.375rem, 3.4vw, 2.125rem);
+  line-height: 1.3;
+  color: #909090;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  max-width: 22ch;
+  margin: 0 auto 1.5rem;
+}
+.price .fine { color: var(--meta); max-width: 44ch; margin: 0 auto 2.5rem; }
+
+/* --- footer ------------------------------------------------------------- */
+
+footer {
+  border-top: 1px solid var(--line-lo);
+  padding-block: 3rem 4rem;
+  font-size: 0.9375rem;
+  color: var(--meta);
+}
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.foot nav { display: flex; gap: 2rem; }
+.foot a { text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+.foot a:hover { color: var(--ember); border-color: var(--ember); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
-  @media (prefers-color-scheme: dark) { .get { background: #e5e5e7; color: #000; } }
-  .price { display: block; margin: .8rem 0 0; font-size: .9rem; opacity: .55; }
+  .shot:nth-child(2), .shot:nth-child(3) { transform: none; }
+}
 </style>
 </head>
 <body>
-<h1>Sound Terrain</h1>
-<p>Noise made as you listen — never a recording, so never a loop to recognise.</p>
 
-<a class="get" href="https://apps.apple.com/app/id6790733916">Download on the App Store</a>
-<span class="price">Free. One optional purchase unlocks the whole night.</span>
+<header class="wrap hero">
+  <div class="wordmark">Sound Terrain</div>
+  <div class="hero-grid">
 
-<ul>
-  <li><a href="privacy.html">Privacy Policy</a></li>
-  <li><a href="support.html">Support</a></li>
-</ul>
+    <div>
+      <h1>Noise that has never been recorded.</h1>
+      <p class="lede">Every other white noise app loops a file. Around twenty minutes in, your brain finds the seam.</p>
+      <a class="get" href="https://apps.apple.com/app/id6790733916">Download on the App Store</a>
+    </div>
+
+    <div class="instrument">
+      <div class="surface" id="surface" tabindex="0" role="application"
+           aria-label="Interactive noise surface. Drag to change the sound. Left and right moves from light to dark, up and down from still to swelling. Arrow keys work too.">
+        <canvas id="grid" aria-hidden="true"></canvas>
+        <div class="puck" id="puck"></div>
+        <div class="invite" id="invite">
+          <b>Drag here to hear it</b>
+          <span>The sound below is generated in your browser, sample by sample.</span>
+        </div>
+      </div>
+      <div class="axes"><span>Light</span><span>Dark</span></div>
+      <div class="axis-y">Up is still, down is swelling.</div>
+    </div>
+
+  </div>
+</header>
+
+<main>
+
+  <section class="wrap seam">
+    <div class="seam-inner">
+      <h2>Your brain is very good at finding the loop.</h2>
+    </div>
+    <div class="seam-body">
+      <p>It works for a while. Then the seam arrives, and once you have heard it you listen for it. The thing that was supposed to hide the world becomes the thing you are paying attention to.</p>
+      <p>Sound Terrain has no file to loop. The sound is synthesised sample by sample, all night, and no two seconds of it are ever the same.</p>
+    </div>
+  </section>
+
+  <section class="wrap screens">
+    <h2>One surface. Everything is a point on it.</h2>
+    <p class="intro">No sliders, no mixer, no twelve band equaliser to fight with in the dark. Find a sound, name it, and from that night on it is one tap.</p>
+    <div class="shots">
+      <figure class="shot">
+        <img src="img/1-surface.png" alt="The app's main screen: a dark surface with a single puck and saved sounds along the top." width="900" height="1955" loading="eager" decoding="async">
+        <figcaption>Drag the puck. Left to right runs white, through pink, into brown and lower.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/2-onboarding.png" alt="The app's opening screen, explaining the surface in a single sentence." width="900" height="1955" loading="lazy" decoding="async">
+        <figcaption>The whole idea, said once, before you touch anything.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/3-timer.png" alt="The sleep timer, drawn as a ring that closes rather than a countdown." width="900" height="1955" loading="lazy" decoding="async">
+        <figcaption>A timer drawn as a closing ring. A number is a thing a sleepless person lies there watching.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap dark">
+    <h2>Built for the dark</h2>
+    <div class="cols">
+      <div>
+        <h3>True black</h3>
+        <p>An OLED screen emits nothing it does not have to. Controls recede rather than announce themselves.</p>
+      </div>
+      <div>
+        <h3>It leaves slowly</h3>
+        <p>The sound fades out over three minutes. Silence that simply arrives will wake you.</p>
+      </div>
+      <div>
+        <h3>Nothing is collected</h3>
+        <p>No account, no advertising, no analytics. The app makes no network requests at all, because there is no server to send anything to.</p>
+      </div>
+      <div>
+        <h3>Where you expect it</h3>
+        <p>Works with the lock screen, Control Centre, AirPods and VoiceOver.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap price">
+    <p class="line">Free to fall asleep to. One purchase to sleep to.</p>
+    <p class="fine">The surface, every colour, the swell and unlimited saved sounds are free, with no time limit. The only thing that costs anything is the whole night.</p>
+    <a class="get" href="https://apps.apple.com/app/id6790733916">Download on the App Store</a>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <div class="foot">
+    <span>Sound Terrain for iPhone and iPad</span>
+    <nav>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="support.html">Support</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const surface = document.getElementById('surface');
+  const puck    = document.getElementById('puck');
+  const canvas  = document.getElementById('grid');
+
+  // x runs across four control points: white, pink, brown, and the register
+  // below it. y: 0 = still, 1 = swelling. Opening position sits at pink, which
+  // is where the app opens too.
+  let x = 0.34, y = 0.18;
+  let ctx = null, node = null, gain = null, running = false;
+
+  /* -----------------------------------------------------------------------
+     The worklet.
+
+     It deliberately does NOT loop a buffer. The entire claim of the product
+     is that the noise is generated as you listen, and a demo that quietly
+     looped a two-second buffer would be arguing against the thing it is
+     selling. So this runs the same way the app does: sample by sample, both
+     channels decorrelated, for as long as the page is open.
+
+     This is a simplified cousin of the app's engine, not the engine itself.
+     The app renders five weighted colours and a resonant swell in Swift.
+  ----------------------------------------------------------------------- */
+  const workletSource = `
+    class TerrainProcessor extends AudioWorkletProcessor {
+      static get parameterDescriptors() {
+        return [
+          { name: 'x',     defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+          { name: 'swell', defaultValue: 0,   minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+          { name: 'gain',  defaultValue: 0,   minValue: 0, maxValue: 1, automationRate: 'k-rate' }
+        ];
+      }
+
+      constructor() {
+        super();
+        // One independent set of filter state per ear. Correlated noise
+        // collapses to a point between the ears; decorrelated noise is wide.
+        this.ch = [this.newChannel(), this.newChannel()];
+        // Two-pole lowpass on white noise gives a swell that wanders over
+        // fifteen or twenty seconds without ever becoming a rhythm.
+        this.s1 = 0; this.s2 = 0;
+        this.x = 0.5; this.sw = 0; this.g = 0;
+      }
+
+      newChannel() {
+        return { b0:0, b1:0, b2:0, b3:0, b4:0, b5:0, b6:0, brown:0, sub:0 };
+      }
+
+      // Paul Kellet's economical pink filter, plus a leaky integrator for
+      // brown and a second, slower one for the register below it.
+      colour(c, w, weights) {
+        c.b0 = 0.99886 * c.b0 + w * 0.0555179;
+        c.b1 = 0.99332 * c.b1 + w * 0.0750759;
+        c.b2 = 0.96900 * c.b2 + w * 0.1538520;
+        c.b3 = 0.86650 * c.b3 + w * 0.3104856;
+        c.b4 = 0.55000 * c.b4 + w * 0.5329522;
+        c.b5 = -0.7616 * c.b5 - w * 0.0168980;
+        const pink = (c.b0 + c.b1 + c.b2 + c.b3 + c.b4 + c.b5 + c.b6 + w * 0.5362) * 0.11;
+        c.b6 = w * 0.115926;
+
+        c.brown = (c.brown + 0.0175 * w) / 1.0175;
+        c.sub   = (c.sub   + 0.0045 * w) / 1.0045;
+
+        // Measured, not tuned by ear. At 0.55 the white end sat 4.9 dB below
+        // the dark end, so dragging right made the sound louder rather than
+        // darker, and the axis stopped meaning one thing.
+        return w * weights[0] * 0.96
+             + pink * weights[1] * 3.6
+             + c.brown * weights[2] * 12.0
+             + c.sub * weights[3] * 22.0;
+      }
+
+      // Four control points across the axis, crossfaded so only two colours
+      // are ever mixing. A flat weighting would mud the middle.
+      weights(x) {
+        const p = Math.min(Math.max(x, 0), 1) * 3;
+        const i = Math.min(Math.floor(p), 2);
+        const f = p - i;
+        const w = [0, 0, 0, 0];
+        w[i] = 1 - f;
+        w[i + 1] = f;
+        return w;
+      }
+
+      process(_inputs, outputs, params) {
+        const out = outputs[0];
+        if (!out || out.length === 0) return true;
+
+        // Glide, so a moved finger never clicks.
+        const tx = params.x[0], ts = params.swell[0], tg = params.gain[0];
+
+        // Weights are settled once per block. They cannot change mid-block,
+        // and a 128 sample block is under three milliseconds.
+        const wts = this.weights(this.x + (tx - this.x) * 0.02);
+
+        for (let i = 0; i < out[0].length; i++) {
+          this.x  += (tx - this.x)  * 0.0004;
+          this.sw += (ts - this.sw) * 0.0004;
+          this.g  += (tg - this.g)  * 0.0002;
+
+          // Swell: white noise dragged through two very slow poles.
+          const n = Math.random() * 2 - 1;
+          this.s1 += (n - this.s1) * 0.00018;
+          this.s2 += (this.s1 - this.s2) * 0.00018;
+          const swellValue = Math.max(-1, Math.min(1, this.s2 * 42));
+          const swellGain = 1 + swellValue * 0.55 * this.sw;
+
+          for (let c = 0; c < Math.min(out.length, 2); c++) {
+            const w = Math.random() * 2 - 1;
+            const s = this.colour(this.ch[c], w, wts) * swellGain * this.g;
+            // Soft clip only. The darkest corner peaks hard against the knee,
+            // and a hard clamp on top of tanh would flatten it into a buzz.
+            out[c][i] = Math.tanh(s * 1.4) * 0.7;
+          }
+        }
+
+        return true;
+      }
+    }
+    registerProcessor('terrain', TerrainProcessor);
+  `;
+
+  async function start() {
+    if (ctx) { if (ctx.state === 'suspended') await ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;                       // no Web Audio: the page still reads fine
+    ctx = new AC();
+    if (!ctx.audioWorklet) { ctx = null; return; }
+
+    const url = URL.createObjectURL(new Blob([workletSource], { type: 'application/javascript' }));
+    try {
+      await ctx.audioWorklet.addModule(url);
+    } catch (e) {
+      ctx = null; return;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+
+    node = new AudioWorkletNode(ctx, 'terrain', { outputChannelCount: [2] });
+    gain = ctx.createGain();
+    gain.gain.value = 1;
+    node.connect(gain).connect(ctx.destination);
+
+    push();
+    node.parameters.get('gain').value = 0.5;
+    running = true;
+    surface.classList.add('live');
+  }
+
+  function push() {
+    if (!node) return;
+    node.parameters.get('x').value = x;
+    node.parameters.get('swell').value = y;
+  }
+
+  /* --- the surface itself ------------------------------------------------ */
+
+  function place() {
+    puck.style.left = (x * 100) + '%';
+    puck.style.top  = (y * 100) + '%';
+  }
+
+  function setFromEvent(e) {
+    const r = surface.getBoundingClientRect();
+    x = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1);
+    y = Math.min(Math.max((e.clientY - r.top) / r.height, 0), 1);
+    place(); push();
+  }
+
+  let dragging = false;
+
+  surface.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    surface.setPointerCapture(e.pointerId);
+    setFromEvent(e);
+    start();
+  });
+  surface.addEventListener('pointermove', (e) => { if (dragging) setFromEvent(e); });
+  surface.addEventListener('pointerup',   () => { dragging = false; });
+  surface.addEventListener('pointercancel', () => { dragging = false; });
+
+  // Keyboard, because a surface you can only drag is a surface some people
+  // cannot use at all.
+  surface.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 0.12 : 0.04;
+    let handled = true;
+    switch (e.key) {
+      case 'ArrowLeft':  x = Math.max(0, x - step); break;
+      case 'ArrowRight': x = Math.min(1, x + step); break;
+      case 'ArrowUp':    y = Math.max(0, y - step); break;
+      case 'ArrowDown':  y = Math.min(1, y + step); break;
+      case 'Enter':
+      case ' ':          start(); break;
+      default: handled = false;
+    }
+    if (handled) { e.preventDefault(); place(); push(); start(); }
+  });
+
+  // Stop when the tab is hidden. Nobody wants noise from a tab they left.
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) { ctx.suspend(); surface.classList.remove('live'); }
+    else if (running) { ctx.resume(); surface.classList.add('live'); }
+  });
+
+  /* --- the backdrop ------------------------------------------------------
+     Drawn rather than an image: it is a gradient plus two hairlines, which is
+     what the app draws too. Redrawn on resize only.
+  --------------------------------------------------------------------- */
+  function paint() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = surface.clientWidth, h = surface.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    const g = canvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+
+    // The axis has to be legible as an axis. At #131313 to #050505 it read as
+    // a flat panel and the label under it did the whole job.
+    const grad = g.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, '#242424');
+    grad.addColorStop(1, '#030303');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+
+    g.strokeStyle = '#1e1e1e';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(w / 2, 0); g.lineTo(w / 2, h);
+    g.moveTo(0, h / 2); g.lineTo(w, h / 2);
+    g.stroke();
+  }
+
+  const ro = new ResizeObserver(paint);
+  ro.observe(surface);
+  paint();
+  place();
+})();
+</script>
+
 </body>
 </html>
