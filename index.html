@@ -23,17 +23,23 @@
 
    System font on purpose. This markets an iOS app, and -apple-system resolves
    to the exact SF Pro the app itself draws in.
+
+   There was a playable surface here, generating noise in the browser with an
+   AudioWorklet. It was removed on 2026-07-30, and the reason is worth keeping:
+   it worked, and that was the problem. It handed over the whole surface, every
+   colour and the swell, with no time limit at all, while the app's own free
+   tier stops the timer at thirty minutes and the paid unlock IS the night
+   (Store/listing.md, "En grind, inte en matris"). A demo that gives away more
+   than the free app, and specifically gives away the one thing being sold, is
+   not a demo. Screenshots point at the product. The instrument replaced it.
 --------------------------------------------------------------------------- */
 :root {
   --bg:      #000000;
-  --surface: #0b0b0b;   /* the app's own surface fill, white 0.042 */
   --line:    #242424;
   --line-lo: #171717;
   --ember:   #de7038;   /* Palette.ember, rgb(0.87, 0.44, 0.22) */
   --text:    #858585;   /* white 0.52, the app's ceiling. 5.6:1 on black */
   --meta:    #757575;   /* 4.6:1 on black, still AA */
-  --recede:  #454545;   /* non-essential only */
-  --measure: 60ch;
   --edge:    clamp(1.25rem, 5vw, 4rem);
 }
 
@@ -55,7 +61,6 @@ p { margin: 0; }
 a { color: inherit; }
 
 .wrap { max-width: 1180px; margin: 0 auto; padding-inline: var(--edge); }
-
 section { padding-block: clamp(5rem, 12vw, 9rem); }
 
 /* --- hero ---------------------------------------------------------------- */
@@ -70,7 +75,7 @@ section { padding-block: clamp(5rem, 12vw, 9rem); }
   align-items: center;
 }
 @media (min-width: 900px) {
-  .hero-grid { grid-template-columns: 1fr 1fr; gap: clamp(3rem, 6vw, 6rem); }
+  .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: clamp(3rem, 6vw, 6rem); }
 }
 
 .wordmark {
@@ -107,116 +112,24 @@ h1 {
   font-size: 1.0625rem;
   text-decoration: none;
   white-space: nowrap;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+  transition: filter 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .get:hover  { filter: brightness(1.08); }
 .get:active { transform: translateY(1px); }
 .get:focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; }
 
-/* --- the surface: an actual instrument, not a picture of one -------------- */
-
-.instrument { width: 100%; }
-
-.surface {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  max-height: 62vh;
+.hero-shot {
+  margin: 0;
+  justify-self: center;
+}
+.hero-shot img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 66vh;
+  border-radius: 16px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  touch-action: none;
-  cursor: crosshair;
-  overflow: hidden;
 }
-.surface:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
-
-.surface canvas { display: block; width: 100%; height: 100%; }
-
-/* Matched to SurfaceView.swift, not invented here. The app fills the puck with
-   ember, rings it with black at 55%, glows it at 0.18 resting and 0.45 playing,
-   and scales it 1.12 while dragged. A design detector will flag the glow as the
-   AI "cool" default; it is wrong in this one case, and the app says so in its
-   own source: the accent is the only thing permitted to glow, and this is what
-   it is for. */
-.puck {
-  position: absolute;
-  width: 26px; height: 26px;
-  margin: -13px 0 0 -13px;
-  border-radius: 50%;
-  background: var(--ember);
-  border: 2px solid rgba(0, 0, 0, 0.55);
-  opacity: 0.55;
-  box-shadow: 0 0 12px rgba(222, 112, 56, 0.18);
-  pointer-events: none;
-  transition: opacity 0.5s ease, box-shadow 0.4s ease, transform 0.1s linear;
-}
-.puck { --breath: 1; transform: scale(var(--breath)); }
-.surface.live .puck {
-  opacity: 1;
-  box-shadow: 0 0 12px rgba(222, 112, 56, 0.45);
-}
-.surface.dragging .puck {
-  transform: scale(calc(var(--breath) * 1.12));
-  box-shadow: 0 0 20px rgba(222, 112, 56, 0.45);
-}
-
-.invite {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  gap: 0.5rem;
-  text-align: center;
-  padding: 1.5rem;
-  color: var(--meta);
-  font-size: 0.9375rem;
-  background: rgba(0, 0, 0, 0.55);
-  transition: opacity 0.6s ease;
-}
-.invite b { color: var(--text); font-weight: 500; display: block; font-size: 1.0625rem; }
-.surface.live .invite { opacity: 0; pointer-events: none; }
-
-.axes {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 0.875rem;
-  font-size: 0.8125rem;
-  color: var(--meta);
-}
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 0.75rem;
-  min-height: 2.25rem;
-}
-.axis-y {
-  font-size: 0.8125rem;
-  color: var(--meta);
-}
-
-/* Sound that starts on a drag must be stoppable in one obvious click. This
-   button is visible the whole time the sound is on, never hidden behind a
-   hover, and Escape does the same thing. */
-.stop {
-  flex: none;
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--ember);
-  background: transparent;
-  border: 1px solid var(--ember);
-  border-radius: 980px;
-  padding: 0.4rem 1.1rem;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-.stop:hover { background: var(--ember); color: #12080a; }
-.stop:active { transform: translateY(1px); }
-.stop:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
-.stop[hidden] { display: none; }
 
 /* --- the seam: one full-width editorial statement ------------------------ */
 
@@ -235,7 +148,7 @@ h1 {
 .seam p:last-child { margin-bottom: 0; }
 .seam-body { max-width: 52ch; }
 
-/* --- screens: real screenshots, offset so the row is not a wall ---------- */
+/* --- screens ------------------------------------------------------------- */
 
 .screens { border-top: 1px solid var(--line-lo); }
 .screens h2 {
@@ -247,9 +160,10 @@ h1 {
 
 .shots {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(1rem, 3vw, 2.5rem);
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(1.5rem, 5vw, 4rem);
   align-items: start;
+  max-width: 48rem;
 }
 .shot img {
   display: block;
@@ -265,13 +179,12 @@ h1 {
 }
 @media (min-width: 700px) {
   .shot:nth-child(2) { transform: translateY(2.5rem); }
-  .shot:nth-child(3) { transform: translateY(1rem); }
 }
 @media (max-width: 699px) {
   .shots { grid-template-columns: 1fr; gap: 3rem; max-width: 22rem; }
 }
 
-/* --- dark: two columns of prose, no cards ------------------------------- */
+/* --- dark ---------------------------------------------------------------- */
 
 .dark { border-top: 1px solid var(--line-lo); }
 .dark h2 {
@@ -279,19 +192,12 @@ h1 {
   color: #909090;
   margin-bottom: clamp(2rem, 4vw, 3rem);
 }
-.cols {
-  display: grid;
-  gap: clamp(2rem, 4vw, 3.5rem);
-}
+.cols { display: grid; gap: clamp(2rem, 4vw, 3.5rem); }
 @media (min-width: 760px) { .cols { grid-template-columns: 1fr 1fr; } }
-.cols h3 {
-  font-size: 1.0625rem;
-  color: var(--text);
-  margin-bottom: 0.625rem;
-}
+.cols h3 { font-size: 1.0625rem; color: var(--text); margin-bottom: 0.625rem; }
 .cols p { color: var(--meta); max-width: 44ch; }
 
-/* --- price: a single sentence, given the whole width -------------------- */
+/* --- price --------------------------------------------------------------- */
 
 .price { border-top: 1px solid var(--line-lo); text-align: center; }
 .price .line {
@@ -305,7 +211,7 @@ h1 {
 }
 .price .fine { color: var(--meta); max-width: 44ch; margin: 0 auto 2.5rem; }
 
-/* --- footer ------------------------------------------------------------- */
+/* --- footer -------------------------------------------------------------- */
 
 footer {
   border-top: 1px solid var(--line-lo);
@@ -329,7 +235,7 @@ footer {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-  .shot:nth-child(2), .shot:nth-child(3) { transform: none; }
+  .shot:nth-child(2) { transform: none; }
 }
 </style>
 </head>
@@ -345,22 +251,14 @@ footer {
       <a class="get" href="https://apps.apple.com/app/id6790733916">Download on the App Store</a>
     </div>
 
-    <div class="instrument">
-      <div class="surface" id="surface" tabindex="0" role="application"
-           aria-label="Interactive noise surface. Drag to change the sound. Left and right moves from light to dark, up and down from still to swelling. Arrow keys work too.">
-        <canvas id="grid" aria-hidden="true"></canvas>
-        <div class="puck" id="puck"></div>
-        <div class="invite" id="invite">
-          <b>Drag here to hear it</b>
-          <span>The sound below is generated in your browser, sample by sample.</span>
-        </div>
-      </div>
-      <div class="axes"><span>Light</span><span>Dark</span></div>
-      <div class="controls">
-        <button type="button" class="stop" id="stop" hidden>Stop</button>
-        <span class="axis-y">Up is still, down is swelling.</span>
-      </div>
-    </div>
+    <!-- No caption. The screenshot already carries "left to right is light to
+         dark, top to bottom is still to swelling" burned into it, and printing
+         the same sentence underneath reads as a page that has not looked at
+         its own image. -->
+    <figure class="hero-shot">
+      <img src="img/1-surface.png" width="414" height="900" fetchpriority="high" decoding="async"
+           alt="Sound Terrain running on iPhone: a dark surface with a single ember puck, saved sounds along the top, and a timer ring below showing 15, 30, 1H, 2H and NIGHT.">
+    </figure>
 
   </div>
 </header>
@@ -368,9 +266,7 @@ footer {
 <main>
 
   <section class="wrap seam">
-    <div class="seam-inner">
-      <h2>Your brain is very good at finding the loop.</h2>
-    </div>
+    <h2>Your brain is very good at finding the loop.</h2>
     <div class="seam-body">
       <p>It works for a while. Then the seam arrives, and once you have heard it you listen for it. The thing that was supposed to hide the world becomes the thing you are paying attention to.</p>
       <p>Sound Terrain has no file to loop. The sound is synthesised sample by sample, all night, and no two seconds of it are ever the same.</p>
@@ -378,19 +274,15 @@ footer {
   </section>
 
   <section class="wrap screens">
-    <h2>One surface. Everything is a point on it.</h2>
-    <p class="intro">No sliders, no mixer, no twelve band equaliser to fight with in the dark. Find a sound, name it, and from that night on it is one tap.</p>
+    <h2>No sliders. No mixer. No twelve band equaliser.</h2>
+    <p class="intro">Find a sound by moving one puck, name it, and from that night on playing it is one tap.</p>
     <div class="shots">
       <figure class="shot">
-        <img src="img/1-surface.png" alt="The app's main screen: a dark surface with a single puck and saved sounds along the top." width="900" height="1955" loading="eager" decoding="async">
-        <figcaption>Drag the puck. Left to right runs white, through pink, into brown and lower.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/2-onboarding.png" alt="The app's opening screen, explaining the surface in a single sentence." width="900" height="1955" loading="lazy" decoding="async">
+        <img src="img/2-onboarding.png" alt="The opening screen, explaining the surface in a single sentence." width="414" height="900" loading="lazy" decoding="async">
         <figcaption>The whole idea, said once, before you touch anything.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="img/3-timer.png" alt="The sleep timer, drawn as a ring that closes rather than a countdown." width="900" height="1955" loading="lazy" decoding="async">
+        <img src="img/3-timer.png" alt="The sleep timer, drawn as a ring that closes rather than a countdown." width="414" height="900" loading="lazy" decoding="async">
         <figcaption>A timer drawn as a closing ring. A number is a thing a sleepless person lies there watching.</figcaption>
       </figure>
     </div>
@@ -435,368 +327,6 @@ footer {
     </nav>
   </div>
 </footer>
-
-<script>
-(() => {
-  'use strict';
-
-  const surface = document.getElementById('surface');
-  const puck    = document.getElementById('puck');
-  const canvas  = document.getElementById('grid');
-  const stopBtn = document.getElementById('stop');
-
-  // x runs across four control points: white, pink, brown, and the register
-  // below it. y: 0 = still, 1 = swelling. Opening position sits at pink, which
-  // is where the app opens too.
-  let x = 0.34, y = 0.18;
-  let ctx = null, node = null, gain = null, analyser = null, running = false;
-  const stillare = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-  /* The swell is the whole point of the vertical axis, and until the puck
-     answered to it the axis was a claim with nothing behind it. This reads the
-     real output level rather than re-deriving the swell in the UI thread: what
-     you see is what is actually coming out, not a second animation that merely
-     agrees with it. */
-  function breathe() {
-    if (!analyser || stillare.matches) return;
-    const buf = new Float32Array(analyser.fftSize);
-    let smooth = 0;
-    const tick = () => {
-      if (!analyser) return;
-      if (running) {
-        analyser.getFloatTimeDomainData(buf);
-        let s = 0;
-        for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
-        const rms = Math.sqrt(s / buf.length);
-        smooth += (rms - smooth) * 0.08;
-        // Rest is exactly 1, never a fraction under it. Silence has to look
-        // like rest: an earlier version floored at 0.94, so whenever the
-        // browser declined to start the audio the puck sat visibly shrunken
-        // while the page insisted the sound was on.
-        if (smooth < 0.01) {
-          puck.style.setProperty('--breath', '1');
-        } else {
-          // 0.13 is roughly where the engine settles, so this sits near 1 and
-          // moves a few percent either side as the swell washes through.
-          const k = Math.max(0, Math.min(1.6, smooth / 0.13));
-          puck.style.setProperty('--breath', (0.97 + k * 0.05).toFixed(3));
-        }
-      } else {
-        puck.style.setProperty('--breath', '1');
-      }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-
-  /* -----------------------------------------------------------------------
-     The worklet.
-
-     It deliberately does NOT loop a buffer. The entire claim of the product
-     is that the noise is generated as you listen, and a demo that quietly
-     looped a two-second buffer would be arguing against the thing it is
-     selling. So this runs the same way the app does: sample by sample, both
-     channels decorrelated, for as long as the page is open.
-
-     This is a simplified cousin of the app's engine, not the engine itself.
-     The app renders five weighted colours and a resonant swell in Swift.
-  ----------------------------------------------------------------------- */
-  const workletSource = `
-    class TerrainProcessor extends AudioWorkletProcessor {
-      static get parameterDescriptors() {
-        return [
-          { name: 'x',     defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
-          { name: 'swell', defaultValue: 0,   minValue: 0, maxValue: 1, automationRate: 'k-rate' },
-          { name: 'gain',  defaultValue: 0,   minValue: 0, maxValue: 1, automationRate: 'k-rate' }
-        ];
-      }
-
-      constructor() {
-        super();
-        // One independent set of filter state per ear. Correlated noise
-        // collapses to a point between the ears; decorrelated noise is wide.
-        this.ch = [this.newChannel(), this.newChannel()];
-        // Two-pole lowpass on white noise gives a swell that wanders over
-        // fifteen or twenty seconds without ever becoming a rhythm.
-        // Derived from the real sample rate, not hardcoded: at 44.1k a
-        // constant tuned for 48k would run the weather 9 percent fast.
-        this.s1 = 0; this.s2 = 0;
-        this.swellCoef = 1 / (sampleRate * 2.5);
-        this.x = 0.5; this.sw = 0; this.g = 0;
-
-        // Run the swell filter forward before the first sample is asked for.
-        // Starting both poles at zero means the wave needs about ten seconds
-        // to reach its real amplitude, and someone who drags the puck down to
-        // hear the swell would hear nothing at all for that whole time and
-        // conclude the axis does nothing. Costs a few milliseconds, once.
-        for (let i = 0; i < sampleRate * 8; i++) {
-          const w = Math.random() * 2 - 1;
-          this.s1 += (w - this.s1) * this.swellCoef;
-          this.s2 += (this.s1 - this.s2) * this.swellCoef;
-        }
-      }
-
-      newChannel() {
-        return { b0:0, b1:0, b2:0, b3:0, b4:0, b5:0, b6:0, brown:0, sub:0 };
-      }
-
-      // Paul Kellet's economical pink filter, plus a leaky integrator for
-      // brown and a second, slower one for the register below it.
-      colour(c, w, weights) {
-        c.b0 = 0.99886 * c.b0 + w * 0.0555179;
-        c.b1 = 0.99332 * c.b1 + w * 0.0750759;
-        c.b2 = 0.96900 * c.b2 + w * 0.1538520;
-        c.b3 = 0.86650 * c.b3 + w * 0.3104856;
-        c.b4 = 0.55000 * c.b4 + w * 0.5329522;
-        c.b5 = -0.7616 * c.b5 - w * 0.0168980;
-        const pink = (c.b0 + c.b1 + c.b2 + c.b3 + c.b4 + c.b5 + c.b6 + w * 0.5362) * 0.11;
-        c.b6 = w * 0.115926;
-
-        c.brown = (c.brown + 0.0175 * w) / 1.0175;
-        c.sub   = (c.sub   + 0.0045 * w) / 1.0045;
-
-        // Measured, not tuned by ear. At 0.55 the white end sat 4.9 dB below
-        // the dark end, so dragging right made the sound louder rather than
-        // darker, and the axis stopped meaning one thing.
-        return w * weights[0] * 0.96
-             + pink * weights[1] * 3.6
-             + c.brown * weights[2] * 12.0
-             + c.sub * weights[3] * 22.0;
-      }
-
-      // Four control points across the axis, crossfaded so only two colours
-      // are ever mixing. A flat weighting would mud the middle.
-      weights(x) {
-        const p = Math.min(Math.max(x, 0), 1) * 3;
-        const i = Math.min(Math.floor(p), 2);
-        const f = p - i;
-        const w = [0, 0, 0, 0];
-        w[i] = 1 - f;
-        w[i + 1] = f;
-        return w;
-      }
-
-      process(_inputs, outputs, params) {
-        const out = outputs[0];
-        if (!out || out.length === 0) return true;
-
-        // Glide, so a moved finger never clicks.
-        const tx = params.x[0], ts = params.swell[0], tg = params.gain[0];
-
-        // Weights are settled once per block. They cannot change mid-block,
-        // and a 128 sample block is under three milliseconds.
-        const wts = this.weights(this.x + (tx - this.x) * 0.02);
-
-        for (let i = 0; i < out[0].length; i++) {
-          this.x  += (tx - this.x)  * 0.0004;
-          this.sw += (ts - this.sw) * 0.0004;
-          this.g  += (tg - this.g)  * 0.0002;
-
-            // Swell: white noise dragged through two very slow poles.
-          //
-          // Measured, and the first version was wrong. At a coefficient of
-          // 0.00018 the wave had a period of 0.9 seconds, while the product
-          // describes waves that move through the sound over fifteen or twenty
-          // seconds. It was a tremble, not weather.
-          //
-          // A 2.5 second time constant measures at roughly 13 seconds between
-          // crossings. tanh rather than a hard clamp, because a clipped swell
-          // is a square wave, and a square wave is an event you listen for,
-          // which is the one thing this sound must never give you.
-          const n = Math.random() * 2 - 1;
-          this.s1 += (n - this.s1) * this.swellCoef;
-          this.s2 += (this.s1 - this.s2) * this.swellCoef;
-          const swellValue = Math.tanh(this.s2 * 600);
-          const swellGain = 1 + swellValue * 0.55 * this.sw;
-
-          for (let c = 0; c < Math.min(out.length, 2); c++) {
-            const w = Math.random() * 2 - 1;
-            const s = this.colour(this.ch[c], w, wts) * swellGain * this.g;
-            // Soft clip only. The darkest corner peaks hard against the knee,
-            // and a hard clamp on top of tanh would flatten it into a buzz.
-            out[c][i] = Math.tanh(s * 1.4) * 0.7;
-          }
-        }
-
-        return true;
-      }
-    }
-    registerProcessor('terrain', TerrainProcessor);
-  `;
-
-  async function start() {
-    if (ctx) {
-      // State first, resume after, and deliberately not awaited. An awaited
-      // resume() that the browser declines never settles, and everything below
-      // it silently never runs: the sound stays off and the button never comes
-      // back. The visible state must not depend on that promise.
-      running = true;
-      node.parameters.get('gain').value = 0.5;
-      surface.classList.add('live');
-      stopBtn.hidden = false;
-      if (ctx.state === 'suspended') ctx.resume();
-      return;
-    }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;                       // no Web Audio: the page still reads fine
-    ctx = new AC();
-    if (!ctx.audioWorklet) { ctx = null; return; }
-
-    const url = URL.createObjectURL(new Blob([workletSource], { type: 'application/javascript' }));
-    try {
-      await ctx.audioWorklet.addModule(url);
-    } catch (e) {
-      ctx = null; return;
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-
-    node = new AudioWorkletNode(ctx, 'terrain', { outputChannelCount: [2] });
-    gain = ctx.createGain();
-    gain.gain.value = 1;
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    node.connect(gain).connect(analyser);
-    analyser.connect(ctx.destination);
-    breathe();
-
-    push();
-    node.parameters.get('gain').value = 0.5;
-    running = true;
-    surface.classList.add('live');
-    stopBtn.hidden = false;
-  }
-
-  // Ramps the gain down before suspending, so stopping is not a click. The
-  // worklet glides at 0.0002 per sample, which is roughly a fifth of a second.
-  function stop() {
-    if (!ctx || !running) return;
-    running = false;
-    node.parameters.get('gain').value = 0;
-    surface.classList.remove('live');
-    stopBtn.hidden = true;
-    setTimeout(() => { if (!running && ctx) ctx.suspend(); }, 400);
-  }
-
-  function push() {
-    if (!node) return;
-    node.parameters.get('x').value = x;
-    node.parameters.get('swell').value = y;
-  }
-
-  /* --- the surface itself ------------------------------------------------ */
-
-  function place() {
-    puck.style.left = (x * 100) + '%';
-    puck.style.top  = (y * 100) + '%';
-  }
-
-  function setFromEvent(e) {
-    const r = surface.getBoundingClientRect();
-    x = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1);
-    y = Math.min(Math.max((e.clientY - r.top) / r.height, 0), 1);
-    place(); push();
-  }
-
-  let dragging = false;
-
-  surface.addEventListener('pointerdown', (e) => {
-    dragging = true;
-    surface.classList.add('dragging');
-    // Capture is a nicety: it keeps the drag alive when the pointer leaves the
-    // box. It throws on a pointer id the browser does not recognise, and an
-    // uncaught throw here kills the rest of the handler, so the sound never
-    // starts. Never let the nicety take the essential with it.
-    try { surface.setPointerCapture(e.pointerId); } catch (_) {}
-    setFromEvent(e);
-    start();
-  });
-  surface.addEventListener('pointermove', (e) => { if (dragging) setFromEvent(e); });
-  const endDrag = () => { dragging = false; surface.classList.remove('dragging'); };
-  surface.addEventListener('pointerup', endDrag);
-  surface.addEventListener('pointercancel', endDrag);
-
-  stopBtn.addEventListener('click', stop);
-
-  // Escape stops it from anywhere on the page, not just from the button. If
-  // the sound is on and unwanted, hunting for a control is the wrong thing to
-  // ask of someone.
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && running) { e.preventDefault(); stop(); }
-  });
-
-  // Keyboard, because a surface you can only drag is a surface some people
-  // cannot use at all.
-  surface.addEventListener('keydown', (e) => {
-    const step = e.shiftKey ? 0.12 : 0.04;
-    let handled = true;
-    switch (e.key) {
-      case 'ArrowLeft':  x = Math.max(0, x - step); break;
-      case 'ArrowRight': x = Math.min(1, x + step); break;
-      case 'ArrowUp':    y = Math.max(0, y - step); break;
-      case 'ArrowDown':  y = Math.min(1, y + step); break;
-      case 'Enter':
-      case ' ':          e.preventDefault(); running ? stop() : start(); return;
-      default: handled = false;
-    }
-    if (handled) { e.preventDefault(); place(); push(); start(); }
-  });
-
-  // Stop when the tab is hidden. Nobody wants noise from a tab they left.
-  document.addEventListener('visibilitychange', () => {
-    if (!ctx) return;
-    if (document.hidden) { ctx.suspend(); surface.classList.remove('live'); }
-    else if (running) { ctx.resume(); surface.classList.add('live'); }
-  });
-
-  /* --- the backdrop ------------------------------------------------------
-     Drawn rather than an image: it is a gradient plus two hairlines, which is
-     what the app draws too. Redrawn on resize only.
-  --------------------------------------------------------------------- */
-  function paint() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = surface.clientWidth, h = surface.clientHeight;
-    canvas.width = w * dpr; canvas.height = h * dpr;
-    const g = canvas.getContext('2d');
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, w, h);
-
-    // The axis has to be legible as an axis. At #131313 to #050505 it read as
-    // a flat panel and the label under it did the whole job.
-    const grad = g.createLinearGradient(0, 0, w, 0);
-    grad.addColorStop(0, '#242424');
-    grad.addColorStop(1, '#030303');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, w, h);
-
-    // Two weights of rule, as the app draws them: white 0.16 on the quarters,
-    // white 0.10 hairlines between. A single centre cross read as a crosshair
-    // rather than as a field with positions in it.
-    g.lineWidth = 1;
-    g.strokeStyle = '#1a1a1a';
-    g.beginPath();
-    for (let i = 1; i < 8; i++) {
-      if (i % 2 === 0) continue;
-      g.moveTo(Math.round(w * i / 8) + 0.5, 0); g.lineTo(Math.round(w * i / 8) + 0.5, h);
-      g.moveTo(0, Math.round(h * i / 8) + 0.5); g.lineTo(w, Math.round(h * i / 8) + 0.5);
-    }
-    g.stroke();
-
-    g.strokeStyle = '#292929';
-    g.beginPath();
-    for (const f of [0.25, 0.5, 0.75]) {
-      g.moveTo(Math.round(w * f) + 0.5, 0); g.lineTo(Math.round(w * f) + 0.5, h);
-      g.moveTo(0, Math.round(h * f) + 0.5); g.lineTo(w, Math.round(h * f) + 0.5);
-    }
-    g.stroke();
-  }
-
-  const ro = new ResizeObserver(paint);
-  ro.observe(surface);
-  paint();
-  place();
-})();
-</script>
 
 </body>
 </html>
