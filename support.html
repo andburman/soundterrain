@@ -12,12 +12,18 @@
     /* Unconditionally dark, like the app. These pages are reached from inside a
        black screen; following the phone's appearance instead meant a reader on a
        light-mode phone was thrown from black to white mid-tap. */
-    color: #e5e5e7; background: #000;
+    /* The app's own scale, not the web's. #e5e5e7 is white 0.90; nothing inside the
+       app is brighter than white 0.52, so the pages glared by comparison in a dark
+       room. 6.08:1 still clears WCAG AA comfortably. */
+    color: #8a8a8a; background: #000;
   }
-  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 2rem; }
-  h2 { font-size: 1.05rem; font-weight: 600; margin: 2.4rem 0 .5rem; }
+  h1 { font-size: 1.6rem; font-weight: 600; color: #b3b3b3; margin: 0 0 2rem; }
+  h2 { font-size: 1.05rem; font-weight: 600; color: #b3b3b3; margin: 2.4rem 0 .5rem; }
   p { margin: .5rem 0; }
-  a { color: inherit; }
+  /* The app has exactly one accent and spends it sparingly. A link is the one thing
+     on these pages worth spending it on — and `inherit` made links indistinguishable
+     from the text around them. */
+  a { color: #de7038; }
   .contact { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid currentColor; }
   .contact { border-color: rgba(128,128,128,.25); }
 </style>
