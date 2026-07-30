@@ -518,8 +518,22 @@ footer {
         this.ch = [this.newChannel(), this.newChannel()];
         // Two-pole lowpass on white noise gives a swell that wanders over
         // fifteen or twenty seconds without ever becoming a rhythm.
+        // Derived from the real sample rate, not hardcoded: at 44.1k a
+        // constant tuned for 48k would run the weather 9 percent fast.
         this.s1 = 0; this.s2 = 0;
+        this.swellCoef = 1 / (sampleRate * 2.5);
         this.x = 0.5; this.sw = 0; this.g = 0;
+
+        // Run the swell filter forward before the first sample is asked for.
+        // Starting both poles at zero means the wave needs about ten seconds
+        // to reach its real amplitude, and someone who drags the puck down to
+        // hear the swell would hear nothing at all for that whole time and
+        // conclude the axis does nothing. Costs a few milliseconds, once.
+        for (let i = 0; i < sampleRate * 8; i++) {
+          const w = Math.random() * 2 - 1;
+          this.s1 += (w - this.s1) * this.swellCoef;
+          this.s2 += (this.s1 - this.s2) * this.swellCoef;
+        }
       }
 
       newChannel() {
@@ -578,11 +592,21 @@ footer {
           this.sw += (ts - this.sw) * 0.0004;
           this.g  += (tg - this.g)  * 0.0002;
 
-          // Swell: white noise dragged through two very slow poles.
+            // Swell: white noise dragged through two very slow poles.
+          //
+          // Measured, and the first version was wrong. At a coefficient of
+          // 0.00018 the wave had a period of 0.9 seconds, while the product
+          // describes waves that move through the sound over fifteen or twenty
+          // seconds. It was a tremble, not weather.
+          //
+          // A 2.5 second time constant measures at roughly 13 seconds between
+          // crossings. tanh rather than a hard clamp, because a clipped swell
+          // is a square wave, and a square wave is an event you listen for,
+          // which is the one thing this sound must never give you.
           const n = Math.random() * 2 - 1;
-          this.s1 += (n - this.s1) * 0.00018;
-          this.s2 += (this.s1 - this.s2) * 0.00018;
-          const swellValue = Math.max(-1, Math.min(1, this.s2 * 42));
+          this.s1 += (n - this.s1) * this.swellCoef;
+          this.s2 += (this.s1 - this.s2) * this.swellCoef;
+          const swellValue = Math.tanh(this.s2 * 600);
           const swellGain = 1 + swellValue * 0.55 * this.sw;
 
           for (let c = 0; c < Math.min(out.length, 2); c++) {
